@@ -40,13 +40,14 @@
 %}
 
 struct PointIdType {
+	PointIdType();
+	PointIdType(unsigned);
 	unsigned ptId;
 
 };
 	
 class TrivialVectorialRepresenter {
 public:
-
 
 	typedef statismo::VectorType DatasetPointerType;
 	typedef const statismo::VectorType DatasetConstPointerType;
@@ -55,5 +56,8 @@ public:
 	typedef statismo::ScalarType ValueType;
 
 	 %newobject Create; 
- 	 static TrivialVectorialRepresenter* Create();
+ 	 static TrivialVectorialRepresenter* Create(unsigned );
+ 	 
+ private:
+ 	TrivialVectorialRepresenter(unsigned);
 };
