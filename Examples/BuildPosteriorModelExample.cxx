@@ -40,7 +40,7 @@
 #include "statismo/StatisticalModel.h"
 #include "statismo/DataManager.h"
 
-#include "Representers/VTK/vtkStandardMeshRepresenter.h"
+#include "vtkStandardMeshRepresenter.h"
 
 #include "vtkPolyData.h"
 

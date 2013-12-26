@@ -37,53 +37,79 @@
 
 
 #include "statismo/StatisticalModel.h"
-#include "statismo/ReducedVarianceModelBuilder.h"
-#include "Representers/VTK/vtkStandardMeshRepresenter.h"
+#include "vtkStandardMeshRepresenter.h"
 
 #include "vtkPolyData.h"
 #include "vtkPolyDataReader.h"
 #include "vtkPolyDataWriter.h"
-
+#include "vtkVersion.h"
 #include <iostream>
 #include <memory>
 
 using namespace statismo;
 using std::auto_ptr;
 
+void saveSample(const vtkPolyData* pd, const std::string& resdir, const std::string& basename)
+{
+	std::string filename = resdir +std::string("/") + basename;
 
-// illustrates how to reduce the variance of a model
+	vtkPolyDataWriter* w = vtkPolyDataWriter::New();
+#if (VTK_MAJOR_VERSION == 5 )
+	w->SetInput(const_cast<vtkPolyData*>(pd));
+#else
+	w->SetInputData(const_cast<vtkPolyData*>(pd));
+#endif
+	w->SetFileName(filename.c_str());
+	w->Update();
+}
+
+// illustrates how to load a shape model and the basic sampling functinality
 int main(int argc, char** argv) {
 
 	if (argc < 3) {
-		std::cout << "Usage " << argv[0] << " inputmodel outputmodel" << std::endl;
+		std::cout << "Usage " << argv[0] << " modelname resultdir" << std::endl;
 		exit(-1);
 	}
-	std::string inputModelName(argv[1]);
-	std::string outputModelName(argv[2]);
+	std::string modelname(argv[1]);
+	std::string resultdir(argv[2]);
 
 
 	// All the statismo classes have to be parameterized with the RepresenterType.
 	// For building a shape model with vtk, we use the vtkPolyDataRepresenter.
 	typedef vtkStandardMeshRepresenter RepresenterType;
 	typedef StatisticalModel<vtkPolyData> StatisticalModelType;
-	typedef ReducedVarianceModelBuilder<vtkPolyData> ReducedVarianceModelBuilderType;
-
 
 	try {
 
 		// To load a model, we call the static Load method, which returns (a pointer to) a
 		// new StatisticalModel object
 		RepresenterType* representer = RepresenterType::Create();
-		auto_ptr<StatisticalModelType> model(StatisticalModelType::Load(representer, inputModelName));
-		std::cout << "loaded model with variance of " << model->GetPCAVarianceVector().sum()  << std::endl;
+		auto_ptr<StatisticalModelType> model(StatisticalModelType::Load(representer, modelname));
+		std::cout << "loaded model with " << model->GetNumberOfPrincipalComponents() << " Principal Components" << std::endl;
 
-		auto_ptr<ReducedVarianceModelBuilderType> reducedVarModelBuilder(ReducedVarianceModelBuilderType::Create());
 
-		// build a model with only half the variance
-		auto_ptr<StatisticalModelType> reducedModel(reducedVarModelBuilder->BuildNewModelFromModel(model.get(), 0.5));
-		std::cout << "new model has variance of " << reducedModel->GetPCAVarianceVector().sum()  << std::endl;
+		// get the model mean
+		vtkPolyData* mean = model->DrawMean();
+		saveSample(mean, resultdir, "mean.vtk");
 
-		reducedModel->Save(outputModelName);
+		// draw a random sample
+		vtkPolyData* randomSample = model->DrawSample();
+		saveSample(randomSample, resultdir, "randomsample.vtk");
+
+		// draw a sample with known pca coefficients (3 stddev in direction of the 1st PC)
+		VectorType coefficients = VectorType::Zero(model->GetNumberOfPrincipalComponents());
+		coefficients(0) = 3;
+		vtkPolyData* samplePC1 = model->DrawSample(coefficients);
+		saveSample(samplePC1, resultdir, "samplePC1.vtk");
+
+
+		// The vtkPolyDataRepresenter returns naked pointers to vtk objcts. Therefore we have to delete all the samples
+		mean->Delete();
+		randomSample->Delete();
+		samplePC1->Delete();
+
+		std::cout << "saved samples to " << resultdir << std::endl;
+
 	}
 	catch (StatisticalModelException& e) {
 		std::cout << "Exception occured while building the shape model" << std::endl;
